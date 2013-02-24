@@ -8,8 +8,9 @@ repodir=".snappify"
 path=`pwd`
 
 _usage() {
-    echo "usage: $me alias [ name [ snapshot ] ]"
+    echo "usage: $me alias [ name [ snapshot ] ]" 
     echo "       $me clean"
+    echo "       $me conf [ option [ value ] ]"
     echo "       $me diff [ snapshot | 'last' [ file ] ]"
     echo "       $me init"
     echo "       $me list"
@@ -57,6 +58,10 @@ case "$action" in
         fi
         rm "$repo/aliases/"*
         snappify-clean "$repo"
+        ;;
+
+    conf)
+        snappify-conf "$repo" "$2" "$3"
         ;;
 
     diff)
