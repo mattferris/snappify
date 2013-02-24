@@ -1,0 +1,95 @@
+#!/bin/sh
+
+action=$1
+me=`basename $0`
+
+repo=""
+repodir=".snappify"
+path=`pwd`
+
+_usage() {
+    echo "usage: $me alias [ name [ snapshot ] ]"
+    echo "       $me clean"
+    echo "       $me diff [ snapshot | 'last' [ file ] ]"
+    echo "       $me init"
+    echo "       $me list"
+    echo "       $me restore [ snapshot [ file ] ]"
+    echo "       $me snap [ name ]"
+}
+
+if [ -z $1 ]; then
+    _usage
+    exit 1
+fi
+
+if [ "$action" = "init" ]; then
+    repo=$repodir
+    if [ -d "$repo" ]; then
+        echo error: repository already initialized
+        exit 1
+    fi
+    mkdir "$repodir"
+else
+    while [ ! "$path" = "/" ]; do
+        if [ -d "$path/$repodir" ]; then
+            repo="$path/$repodir"
+            break
+        fi
+        path=`dirname "$path"`
+    done
+fi
+
+if [ "$repo" = "" ]; then
+    echo error: no snappify repository found, run \"snappify init\" first
+    exit 1
+fi
+
+case "$action" in
+
+    alias)
+        snappify-alias "$repo" "$2" "$3"
+        ;;
+
+    clean)
+        if [ ! -d "$repo/aliases" ]; then
+            echo error: bad repository, \"$repo/aliases\" doesn\'t exist
+            exit 1
+        fi
+        rm "$repo/aliases/"*
+        snappify-clean "$repo"
+        ;;
+
+    diff)
+        echo not implemented yet
+        ;;
+
+    init)
+        snappify-init "$repo"
+        ;;
+
+    list)
+        snappify-list "$repo"
+        ;;
+
+    restore)
+        snap="last"
+        if [ ! -z $2 ]; then
+            snap=$2
+            
+        fi
+        snap=`snappify-alias "$repo" "$snap"`
+        snappify-restore "$repo" "$snap" "$3"
+        ;;
+
+    snap)
+        snap=`snappify-snap "$repo" "$path" "$2"`
+        echo created snapshot $snap $snap_alias
+        snappify-alias "$repo" last $snap > /dev/null
+        ;;
+
+    *)
+        _usage
+        exit 1
+        ;;
+
+esac

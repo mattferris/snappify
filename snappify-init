@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# usage: snappify-init [ repo ]
+
+repo=`pwd`
+
+if [ ! -z $1 ]; then
+    repo=$1
+fi
+
+if [ ! -d "$repo" ]; then
+    echo error: directory doesn\'t exist \"$repo\"
+    exit 1
+fi
+
+echo initializing snappify repository in $repo
+
+mkdir -p "$repo/aliases" \
+         "$repo/conf" \
+         "$repo/meta" \
+         "$repo/snaps"

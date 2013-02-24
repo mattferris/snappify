@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# usage: snappify-alias repo alias snap
+
+me=`basename "$0"`
+repo=$1
+snapalias=$2
+snap=$3
+
+_usage() {
+    echo "usage: $me repo [ alias [ snap ] ]"
+}
+
+if [ -z $repo ]; then
+    _usage()
+    exit 1
+fi
+
+if [ ! -d "$repo/aliases" ]; then
+    echo error: snappify repository doesn\'t exist
+    exit 1
+fi
+
+if [ -z $snapalias ]; then
+    for i in `ls -1 "$repo/aliases"`; do
+        echo $i '->' `cat "$repo/aliases/$i"`
+    done
+else
+    if [ -z $snap ]; then
+        if [ -f "$repo/aliases/$snapalias" ]; then
+            cat "$repo/aliases/$snapalias"
+        fi
+    elif [ "$snap" = "-" ]; then
+        if [ -f "$repo/aliases/$snapalias" ]; then
+            rm "$repo/aliases/$snapalias"
+            echo removed alias $snapalias
+        fi
+    else
+        echo $snap > "$repo/aliases/$snapalias"
+        echo $snapalias '->' $snap
+    fi
+fi

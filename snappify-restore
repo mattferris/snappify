@@ -1,0 +1,55 @@
+#!/bin/sh
+
+# usage: snappify-restore repo snap [ file ]
+
+repo=$1
+snap=$2
+file=$3
+me=`basename "$0"`
+
+if [ -z $repo -o -z $snap ]; then
+    echo usage: $me repo snap [ file ]
+    exit 1
+fi
+
+if [ ! -d "$repo" ]; then
+    echo error: repository doesn\'t exist, \"$repo\"
+    exit 1
+fi
+
+if [ ! -d "$repo/snaps" ]; then
+    echo error: bad repository, \"$repo/snaps\" doesn\'t exist
+    exit 1
+fi
+
+if [ ! -d "$repo/meta" ]; then
+    echo error: bad repository, \"$repo/meta\" doesn\'t exist
+    exit 1
+fi
+
+ifalias=`snappify-alias "$repo" "$snap"`
+if [ ! "$ifalias" = "" ]; then
+    snap=$ifalias
+fi
+
+if [ ! -d "$repo/snaps/$snap" ]; then
+    echo error: snap doesn\'t exist
+    exit 1
+fi
+
+if [ ! -f "$repo/meta/$snap" ]; then
+    echo error: can\'t find metadata for snap, \"$snap\"
+    exit 1
+fi
+
+path=`cat "$repo/meta/$snap"`
+
+if [ ! -d "$path" ]; then
+    echo error: snap path doesn\'t exist, \"$path\"
+    exit 1
+fi
+
+rm -r "$path/"*
+rsync -aq --force --delete "$repo/snaps/$snap/"* "$path/"
+
+echo restored $snap into $path

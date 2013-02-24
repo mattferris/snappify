@@ -1,0 +1,56 @@
+#!/bin/sh
+
+# usage: snappify-snap repo [ target ]
+
+repo=$1
+target=`pwd`
+snap_alias=$3
+me=`basename "$0"`
+
+if [ -z $1 ]; then
+    echo usage: $me repo [ target ]
+    exit 1
+fi
+
+if [ ! -z $2 ]; then
+    target=$2
+fi
+
+if [ ! -d "$repo" ]; then
+    echo error: repository doesn\'t exist \"$repo\"
+    exit 1
+fi
+
+if [ ! -d "$repo/snaps" ]; then
+    echo error: bad repository, \"$repo/snaps\" doesn\'t exist
+    exit 1
+fi
+
+if [ ! -d "$repo/meta" ]; then
+    echo error: bad repository, \"$repo/meta\" doesn\'t exist
+    exit 1
+fi
+
+if [ ! -d "$target" ]; then
+    echo error: target doesn\'t exist, \"$target\"
+    exit 1
+fi
+
+snap=`dd if=/dev/urandom bs=1024 count=1 2>&1 | sha1sum | awk '{print \$1}'`
+snapdir="$repo/snaps/$snap"
+mkdir "$snapdir"
+if [ ! -z "$snap_alias" ]; then
+    snappify-alias "$repo" "$snap_alias" $snap > /dev/null 2>&1
+fi
+
+exclude=""
+if [ -f "$repo/conf/ignore" ]; then
+    exclude="--exclude-from='$repo/conf/ignore'"
+fi
+
+rsync -aq --exclude=".snappify" $exclude "$target/"* "$snapdir/" #> /dev/null 2>&1
+
+echo "$target" > "$repo/meta/$snap"
+
+echo $snap
+
