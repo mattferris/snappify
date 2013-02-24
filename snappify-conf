@@ -5,9 +5,10 @@
 repo=$1
 option=$2
 value=$3
+me=`basename "$0"`
 
 if [ -z $repo ]; then
-    echo usage: snappify-conf repo [ option [ value ] ]
+    echo usage: $me repo [ option [ value ] ]
     exit 1
 fi
 
