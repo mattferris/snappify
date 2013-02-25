@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# build a tgz
+
+if [ -z $1 ]; then
+    echo please specify a release tag
+    exit 1
+fi
+
+if [ ! -d /tmp/snappify-build ]; then
+    mkdir /tmp/snappify-build
+fi
+
+if [ ! -d /tmp/snappify-build ]; then
+    echo build failed, can\'t created /tmp/snappify-build
+fi
+
+git archive --prefix="snappify-$1/" $1 | gzip > /tmp/snappify-build/snappify-$1.tgz
+
+if [ $? -gt 0 ]; then
+    echo encountered errors, aborting
+    rm -r /tmp/snappify-build
+    exit $?
+fi
+
+mv /tmp/snappify-build/snappify-$1.tgz snappify-$1.tgz
+
+echo built snappify-$1.tgz successfully
