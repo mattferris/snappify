@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # usage: snappify-alias repo alias snap
 
@@ -12,12 +12,22 @@ _usage() {
 }
 
 if [ -z $repo ]; then
-    _usage()
+    _usage
+    exit 1
+fi
+
+if [ ! -d "$repo" ]; then
+    echo error: repository doesn\'t exist, \"$repo\"
     exit 1
 fi
 
 if [ ! -d "$repo/aliases" ]; then
-    echo error: snappify repository doesn\'t exist
+    echo error: bad repository, \"$repo/aliases\" doesn\'t exist
+    exit 1
+fi
+
+if [ ! -d "$repo/snaps" ]; then
+    echo error: bad repository, \"$repo/snaps\" doesn\'t exist
     exit 1
 fi
 
@@ -29,6 +39,13 @@ else
     if [ -z $snap ]; then
         if [ -f "$repo/aliases/$snapalias" ]; then
             cat "$repo/aliases/$snapalias"
+        else
+            aliaslen=${#snapalias}
+            for i in `ls -1 "$repo/snaps"`; do
+                if [ "${i:0:$aliaslen}" = "$snapalias" ]; then
+                    echo $i
+                fi
+            done
         fi
     elif [ "$snap" = "-" ]; then
         if [ -f "$repo/aliases/$snapalias" ]; then
