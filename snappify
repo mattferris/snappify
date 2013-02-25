@@ -65,7 +65,7 @@ case "$action" in
         ;;
 
     diff)
-        echo not implemented yet
+        snappify-diff "$repo" "$2" "$3"
         ;;
 
     init)

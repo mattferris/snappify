@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# usage: snappify-diff repo [ snap [ file ] ]
+
+repo=$1
+snap=$2
+file=$3
+me=`basename "$0"`
+
+if [  -z $repo ]; then
+    echo usage: $0 repo [ snap [ file ] ]
+    exit 1
+fi
+
+if [ ! -d "$repo" ]; then
+    echo error: repository doesn\'t exist, \"$repo\"
+    exit 1
+fi
+
+if [ ! -d "$repo/snaps" ]; then
+    echo erorr: bad repository, \"$repo/snaps\" doesn\'t exist
+    exit 1
+fi
+
+snapdir=""
+if [ -z $snap ]; then
+    ifalias=`snappify-alias "$repo" last`
+    if [ ! "$ifalias" = "" ]; then
+        snap=$ifalias
+    fi
+
+    snapdir="$repo/snaps/$snap"
+
+    if [ ! -d "$snapdir" ]; then
+        echo error: snapshot doesn\'t exist \"$snap\"
+        exit 1
+    fi
+elif [ -d "$repo/snaps/$snap" ]; then
+    snapdir="$repo/snaps/$snap"
+else
+    ifalias=`snappify-alias "$repo" $snap`
+    if [ "$ifalias" = "" ]; then
+        ifalias=`snappify-alias "$repo" last`
+        if [ "$ifalias" = "" ]; then
+            echo error: can\'t find last snapshot
+            exit 1
+        else
+            file=$snap
+            snap=$ifalias
+            snapdir="$repo/snaps/$snap"
+            echo assuming last snapshot $snap
+        fi
+    fi
+fi
+
+snaproot=`snappify-list "$repo" | grep $snap | awk '{print $3}'`
+diffdir=${PWD:${#snaproot}+1}
+
+if [ -z $file ]; then
+    for i in `find $snaproot ! -path "*.snappify*" -type f`; do 
+        difffile=${i:${#snaproot}+1}
+        if [ ! -f "$snapdir/$difffile" ]; then
+            echo new file $difffile
+        elif [ ! -f "$snaproot/$difffile" ]; then
+            echo deleted file $difffile
+        else
+            diff -u "$snapdir/$difffile" "$snaproot/$difffile"
+        fi
+    done
+else
+    if [ ${#diffdir} -gt 0 ]; then
+        diffdir="$diffdir/"
+    fi
+    difffile="$diffdir$file"
+    diff -u "$snapdir/$difffile" "$file"
+fi
