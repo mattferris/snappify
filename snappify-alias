@@ -41,9 +41,10 @@ else
             cat "$repo/aliases/$snapalias"
         else
             aliaslen=${#snapalias}
-            for i in `ls -1 "$repo/snaps"`; do
+            for i in `ls -c1 "$repo/snaps"`; do
                 if [ "${i:0:$aliaslen}" = "$snapalias" ]; then
                     echo $i
+                    break
                 fi
             done
         fi
