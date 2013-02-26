@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# usage: snappify-status repo [ snap ]
+
+repo=$1
+snap=$2
+me=`basename "$0"`
+
+if [ -z $repo ]; then
+    echo usage: $me repo
+    exit 1
+fi
+
+if [ ! -d "$repo" ]; then
+    echo error: repository doesn\'t exist, \"$repo\"
+    exit 1
+fi
+
+if [ ! -d "$repo/snaps" ]; then
+    echo error: bad repository, \"$repo/snaps\" doesn\'t exist
+    exit 1
+fi
+
+if [ ! -d "$repo/meta" ]; then
+    echo error: bad repository, \"$repo/snaps\" doesn\'t exist
+    exit 1
+fi
+
+if [ -z $snap ]; then
+    snap="last"
+fi
+
+ifalias=`snappify-alias "$repo" "$snap"`
+if [ ! "$ifalias" = "" ]; then
+    snap=$ifalias
+fi
+
+snapdir="$repo/snaps/$snap"
+
+if [ ! -d "$snapdir" ]; then
+    echo error: snapshot doesn\'t exist 
+    exit 1
+fi
+
+snaproot=`cat "$repo/meta/$snap"`
+
+(
+    cd "$snaproot"
+    find -type f ! -path "*.snappify*" > /tmp/snappify-$snap.files
+    cd "$snapdir"
+    find -type f >> /tmp/snappify-$snap.files
+)
+
+cat /tmp/snappify-$snap.files | sort | uniq > /tmp/snappify-$snap.unique
+
+for i in `cat /tmp/snappify-$snap.unique`; do
+    file=${i:2}
+    if [ -f "$snapdir/$file" -a ! -f "$snaproot/$file" ]; then
+        echo d $file
+    elif [ -f "$snaproot/$file" -a ! -f "$snapdir/$file" ]; then
+        echo n $file
+    else
+        d=`diff "$snapdir/$file" "$snaproot/$file"`
+        if [ ! "$d" = "" ]; then
+            echo m $file
+        fi
+    fi
+done
+
+rm /tmp/snappify-$snap.*
