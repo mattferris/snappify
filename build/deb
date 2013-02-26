@@ -43,4 +43,6 @@ Maintainer: Matt Ferris <matt@bueller.ca>
 Description: Snapshot management tool
 EOF
 
-#rm -r /tmp/snappify-build
+dpkg-deb -b /tmp/snappify-build snappify-$1_all.deb
+
+rm -r /tmp/snappify-build
