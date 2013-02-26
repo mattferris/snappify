@@ -46,7 +46,7 @@ In lieu of an alias, snapshots can also be referenced by partial IDs. For exampl
 Checking for changes
 --------------------
 
-A summary of the changes made since the last snapshot can be viewed using `snappify status`. It will display whether files have been created (`c`), modified (`m`) or deleted (`d`).
+A summary of the changes made since the last snapshot can be viewed using `snappify status`. It will display whether files are new (`n`), modified (`m`) or deleted (`d`).
 
     # rm temp.txt
     # snappify status
