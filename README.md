@@ -46,7 +46,18 @@ In lieu of an alias, snapshots can also be referenced by partial IDs. For exampl
 Checking for changes
 --------------------
 
-You can see the changes that have been made since a snapshot was created using `snappify diff`. This will produce a diff for each file that has changed. If no snapshot is defined, `last` is assumed.
+A summary of the changes made since the last snapshot can be viewed using `snappify status`. It will display whether files have been created (`c`), modified (`m`) or deleted (`d`).
+
+    # rm temp.txt
+    # snappify status
+    d temp.txt
+    # snappify status 7b82
+    d temp.txt
+    m bar.txt
+
+If no snapshot is specified, `last` is assumed.
+
+You can see the changes that have been made to each file using `snappify diff`. This will produce a diff for each file that has changed. If no snapshot is defined, `last` is assumed.
 
     # snappify diff
     --- /home/user/.snappify/snaps/1feed73104b827183ac3eddb290012cc3d3c532a/bar.txt  2013-02-23 23:31:04.000000000 -0800

@@ -49,7 +49,7 @@ if [ ! -d "$path" ]; then
     exit 1
 fi
 
-rm -r "$path/"*
-rsync -aq --force --delete "$repo/snaps/$snap/"* "$path/"
+#rm -r "$path/"*
+rsync -aq --delete "$repo/snaps/$snap/"* "$path/"
 
 echo restored $snap into $path

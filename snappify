@@ -16,6 +16,7 @@ _usage() {
     echo "       $me list"
     echo "       $me restore [ snapshot [ file ] ]"
     echo "       $me snap [ name ]"
+    echo "       $me status [ snapshot ]"
 }
 
 if [ -z $1 ]; then
@@ -90,6 +91,10 @@ case "$action" in
         snap=`snappify-snap "$repo" "$path" "$2"`
         echo created snapshot $snap $snap_alias
         snappify-alias "$repo" last $snap > /dev/null
+        ;;
+
+    status)
+        snappify-status "$repo" "$2"
         ;;
 
     *)
