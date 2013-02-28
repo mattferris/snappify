@@ -30,15 +30,7 @@ A special alias `last` always references the last snapshot created. `snappify al
     last -> 4e1243bd22c66e76c2ba9eddc1f91394e57f9f83
     foo -> 4e1243bd22c66e76c2ba9eddc1f91394e57f9f83
 
-A quick way to assign an alias to a snapshot is to specify an alias when creating the snapshot.
-
-    # snappify snap foo
-    created snapshot 4e1243bd22c66e76c2ba9eddc1f91394e57f9f83 (foo)
-    # snappify alias
-    last -> 4e1243bd22c66e76c2ba9eddc1f91394e57f9f83
-    foo -> 4e1243bd22c66e76c2ba9eddc1f91394e57f9f83
-
-In lieu of an alias, snapshots can also be referenced by partial IDs. For example, the about snapshot could be referenced as `4e12`. There is no limit to how few characters to use. Be aware, however, that if two snapshots match the partial ID, the newest one will be used. You can use `snappify-alias` to determine which snapshot will be used for a given partial ID.
+In lieu of an alias, snapshots can also be referenced by partial IDs. For example, the above snapshot could be referenced as `4e12`. There is no limit to how few characters to use. Be aware, however, that if two snapshots match the partial ID, the newest one will be used. You can use `snappify alias` to determine which snapshot will be used for a given partial ID.
 
     # snappify alias 4e12
     4e1243bd22c66e76c2ba9eddc1f91394e57f9f83
