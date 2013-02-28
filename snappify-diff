@@ -75,9 +75,16 @@ if [ -z $file ]; then
         fi
     done
 else
+    if [ ! -f "$file" ]; then
+        echo error: file doesn\'t exist
+    fi
     if [ ${#diffdir} -gt 0 ]; then
         diffdir="$diffdir/"
     fi
-    difffile="$diffdir$file"
-    diff -u "$snapdir/$difffile" "$file"
+    snapfile="$snapdir/$diffdir$file"
+    if [ ! -f "$snapfile" ]; then
+        echo new file, nothing to diff
+    else
+        diff -u "$snapfile" "$file"
+    fi
 fi
