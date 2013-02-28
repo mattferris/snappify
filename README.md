@@ -100,3 +100,8 @@ Running `snappify init` creates a new directory called `.snappify` in the curren
     2013-02-25.17:30:21 1feed73104b827183ac3eddb290012cc3d3c532a /home/user
     # snappify clean
     # snappify list
+
+Website
+-------
+
+See the [snappify site](http://www.bueller.ca/software/snappify) for more information.
