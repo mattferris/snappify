@@ -1,4 +1,11 @@
 #!/bin/bash
+#
+# snappify snapshot management suite
+# http://bueller.ca/software/snappify
+#
+# Copyright (c) 2013 Matt Ferris
+# Released under the BSD 2-clause license
+# http://bueller.ca/software/snappify/license
 
 # usage: snappify-status repo [ snap ]
 
@@ -46,20 +53,26 @@ snaproot=`cat "$repo/meta/$snap"`
 
 (
     cd "$snaproot"
-    find -type f ! -path "*.snappify*" > /tmp/snappify-$snap.files
+    find ! -path "*.snappify*" > /tmp/snappify-$snap.files
     cd "$snapdir"
-    find -type f >> /tmp/snappify-$snap.files
+    find >> /tmp/snappify-$snap.files
 )
 
 cat /tmp/snappify-$snap.files | sort | uniq > /tmp/snappify-$snap.unique
 
 for i in `cat /tmp/snappify-$snap.unique`; do
     file=${i:2}
-    if [ -f "$snapdir/$file" -a ! -f "$snaproot/$file" ]; then
+    if [ "$file" = "" ]; then
+        continue
+    fi
+    if [ -d "$snapdir/$file" -o -d "$snaproot/$file" ]; then
+        file="$file/"
+    fi
+    if [ -e "$snapdir/$file" -a ! -e "$snaproot/$file" ]; then
         echo d $file
-    elif [ -f "$snaproot/$file" -a ! -f "$snapdir/$file" ]; then
+    elif [ -e "$snaproot/$file" -a ! -e "$snapdir/$file" ]; then
         echo n $file
-    else
+    elif [ ! -d "$snaproot/$file" ]; then
         d=`diff "$snapdir/$file" "$snaproot/$file"`
         if [ ! "$d" = "" ]; then
             echo m $file

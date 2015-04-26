@@ -38,7 +38,7 @@ Version: $1
 Section: admin
 Priority: optional
 Architecture: all
-Depends: bash, diff
+Depends: bash, diff, rsync
 Maintainer: Matt Ferris <matt@bueller.ca>
 Description: Snapshot management tool
 EOF
