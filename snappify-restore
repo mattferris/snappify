@@ -1,62 +1,43 @@
 #!/bin/bash
 #
 # snappify snapshot management suite
-# http://bueller.ca/software/snappify
+# github.com/mattferris/snappify
 #
-# Copyright (c) 2013 Matt Ferris
+# Copyright (c) 2018 Matt Ferris
 # Released under the BSD 2-clause license
-# http://bueller.ca/software/snappify/license
+# github.com/mattferris/snappify/blob/master/LICENSE.txt
 
-# usage: snappify-restore repo snap [ file ]
+# the location of the snap repo
+root=".snappify"
 
-repo=$1
-snap=$2
-file=$3
-me=`basename "$0"`
+# update the location of the snap repo if it was included in the environment
+if [ ! -z "$SNAPPIFY_ROOT" ]; then
+    root=$SNAPPIFY_ROOT
+fi
 
-if [ -z $repo -o -z $snap ]; then
-    echo usage: $me repo snap [ file ]
+# report an error
+function err {
+    echo "error: $2" >&2
+    exit $1
+}
+
+# report a notice
+function notice {
+    echo "notice: $1" >&2
+}
+
+# determine relative path length
+realbase=$(dirname $(realpath "$root"))
+baselen=$(echo -n "$realbase/ " | wc -c)
+
+# collect arguments
+hash=$1
+path=$2
+
+# make sure we have everything we need
+if [ -z "$hash" ]; then
+    echo "usage: $(basename $0) <hash> [ <path> ... ]"
     exit 1
 fi
 
-if [ ! -d "$repo" ]; then
-    echo error: repository doesn\'t exist, \"$repo\"
-    exit 1
-fi
 
-if [ ! -d "$repo/snaps" ]; then
-    echo error: bad repository, \"$repo/snaps\" doesn\'t exist
-    exit 1
-fi
-
-if [ ! -d "$repo/meta" ]; then
-    echo error: bad repository, \"$repo/meta\" doesn\'t exist
-    exit 1
-fi
-
-ifalias=`snappify-alias "$repo" "$snap"`
-if [ ! "$ifalias" = "" ]; then
-    snap=$ifalias
-fi
-
-if [ ! -d "$repo/snaps/$snap" ]; then
-    echo error: snap doesn\'t exist
-    exit 1
-fi
-
-if [ ! -f "$repo/meta/$snap" ]; then
-    echo error: can\'t find metadata for snap, \"$snap\"
-    exit 1
-fi
-
-path=`cat "$repo/meta/$snap"`
-
-if [ ! -d "$path" ]; then
-    echo error: snap path doesn\'t exist, \"$path\"
-    exit 1
-fi
-
-#rm -r "$path/"*
-rsync -aq --delete "$repo/snaps/$snap/"* "$path/"
-
-echo restored $snap into $path

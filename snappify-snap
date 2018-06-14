@@ -1,63 +1,97 @@
 #!/bin/bash
 #
 # snappify snapshot management suite
-# http://bueller.ca/software/snappify
+# github.com/mattferris/snappify
 #
-# Copyright (c) 2013 Matt Ferris
+# Copyright (c) 2018 Matt Ferris
 # Released under the BSD 2-clause license
-# http://bueller.ca/software/snappify/license
+# github.com/mattferris/snappify/blob/master/LICENSE.txt
 
-# usage: snappify-snap repo [ target ]
+# the location of the snap repo
+root=".snappify"
 
-repo=$1
-target=`pwd`
-snap_alias=$3
-me=`basename "$0"`
-
-if [ -z $1 ]; then
-    echo usage: $me repo [ target ]
-    exit 1
+# update the location of the snap repo if it was included in the environment
+if [ ! -z "$SNAPPIFY_ROOT" ]; then
+    root=$SNAPPIFY_ROOT
 fi
 
-if [ ! -z $2 ]; then
-    target=$2
+# report an error
+function err {
+    echo "error: $2" >&2
+    exit $1
+}
+
+# report a notice
+function notice {
+    echo "notice: $1" >&2
+}
+
+# generate a checksum for a string
+function strsum {
+    echo -n "$1" | sha1sum | cut -d\  -f1
+}
+
+# search current and parent directories for repo
+function findrepo {
+    path=$1
+    if [ -d "$path/.snappify" ]; then
+        echo "$path/.snappify"
+        return 0
+    elif [ "$path" = "/" ]; then
+        err 2 "no repository found"
+    else
+        findrepo "$(dirname $path)"
+    fi
+}
+
+# collect arguments
+message=$1
+
+# determine the location of the repo
+if [ ! -d "$root" ]; then
+    root=$(findrepo $(pwd))
 fi
 
-if [ ! -d "$repo" ]; then
-    echo error: repository doesn\'t exist \"$repo\"
-    exit 1
+# write the files to the repo
+hash=$(SNAPPIFY_ROOT="$root" snappify-write "$(dirname "$root")")
+
+# verify write was successful
+if [ ! $? = 0 ]; then
+    err 2 "snapshot failed, an error was encountered while writing to $root"
 fi
 
-if [ ! -d "$repo/snaps" ]; then
-    echo error: bad repository, \"$repo/snaps\" doesn\'t exist
-    exit 1
+# make sure snaps directory exists
+if [ ! -d "$root/snaps" ]; then
+    mkdir "$root/snaps" || err 2 "failed to create snap directory"
 fi
 
-if [ ! -d "$repo/meta" ]; then
-    echo error: bad repository, \"$repo/meta\" doesn\'t exist
-    exit 1
+# check if this fileset is the same as the last snapshot
+last=$(snappify-alias last 2>/dev/null)
+if [ $? = 0 -a ! -z "$last" ]; then
+    lasthash=$(snappify-read snap "$last" | head -n1 | awk -F'  ' '{print $3}')
+    if [ "$hash" = "$lasthash" ]; then
+        err 2 "no changes since last snapshot, aborting"
+    fi
 fi
 
-if [ ! -d "$target" ]; then
-    echo error: target doesn\'t exist, \"$target\"
-    exit 1
+data="$(whoami)  $(date -R)  $hash"
+snapsum=$(strsum "$data")
+
+# write snapshot metadata
+cat <<EOF > "$root/snaps/$snapsum"
+$data
+$message
+EOF
+
+# verify snap was written
+if [ ! $? = 0 ]; then
+    err 2 "snapshot failed, failed to write snapshot metadata"
 fi
 
-snap=`dd if=/dev/urandom bs=1024 count=1 2>&1 | sha1sum | awk '{print \$1}'`
-snapdir="$repo/snaps/$snap"
-mkdir "$snapdir"
-if [ ! -z "$snap_alias" ]; then
-    snappify-alias "$repo" "$snap_alias" $snap > /dev/null 2>&1
-fi
+# add snapshot to log
+echo "$snapsum" >> "$root/log"
 
-exclude=""
-if [ -f "$repo/conf/ignore" ]; then
-    exclude="--exclude-from='$repo/conf/ignore'"
-fi
+# point 'last' alias to new snapshot
+snappify-alias last "$snapsum" || err 2 "failed to updated 'last' alias to point to new snap"
 
-rsync -aq --exclude=".snappify" $exclude "$target/"* "$snapdir/" #> /dev/null 2>&1
-
-echo "$target" > "$repo/meta/$snap"
-
-echo $snap
-
+echo "created snapshot $snapsum"

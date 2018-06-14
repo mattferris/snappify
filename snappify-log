@@ -1,0 +1,65 @@
+#!/bin/bash
+#
+# snappify snapshot management suite
+# github.com/mattferris/snappify
+#
+# Copyright (c) 2018 Matt Ferris
+# Released under the BSD 2-clause license
+# github.com/mattferris/snappify/blob/master/LICENSE.txt
+
+# the location of the snap repo
+root=".snappify"
+
+# update the location of the snap repo if it was included in the environment
+if [ ! -z "$SNAPPIFY_ROOT" ]; then
+    root=$SNAPPIFY_ROOT
+fi
+
+# report an error
+function err {
+    echo "error: $2" >&2
+    exit $1
+}
+
+# report a notice
+function notice {
+    echo "notice: $1" >&2
+}
+
+# search current and parent directories for repo
+function findrepo {
+    path=$1
+    if [ -d "$path/.snappify" ]; then
+        echo "$path/.snappify"
+        return 0
+    elif [ "$path" = "/" ]; then
+        err 2 "no repository found"
+    else
+        findrepo "$(dirname $path)"
+    fi
+}
+
+# determine the location of the repo
+if [ ! -d "$root" ]; then
+    root=$(findrepo $(pwd))
+fi
+
+# how many snapshots to display?
+num=$1
+
+# default to 5
+if [ -z "$num" ]; then
+    num=5
+fi
+
+# check if log file exists
+if [ ! -f "$root/log" ]; then
+    err 2 "no log contents yet"
+fi
+
+# display log
+for hash in $(tail -n "$num" "$root/log"); do
+    echo "$hash"
+    snappify-read snap "$hash"
+    echo
+done

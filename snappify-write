@@ -1,0 +1,183 @@
+#!/bin/bash
+#
+# snappify snapshot management suite
+# github.com/mattferris/snappify
+#
+# Copyright (c) 2018 Matt Ferris
+# Released under the BSD 2-clause license
+# github.com/mattferris/snappify/blob/master/LICENSE.txt
+
+# the location of the snap repo
+root=".snappify"
+
+# update the location of the snap repo if it was included in the environment
+if [ ! -z "$SNAPPIFY_ROOT" ]; then
+    root=$SNAPPIFY_ROOT
+fi
+
+# report an error
+function err {
+    echo "error: $2" >&2
+    exit $1
+}
+
+# report a notice
+function notice {
+    echo "notice: $1" >&2
+}
+
+# generate a checksum for a string
+function strsum {
+    echo -n "$1" | sha1sum | cut -d\  -f1
+}
+
+# generate a checksum for a file
+function filesum {
+    sha1sum $1 | cut -d\  -f1
+}
+
+# determine path relative to repo
+function relpath {
+    realbase=$(dirname $(realpath "$root"))
+    baselen=$(echo -n "$realbase/ " | wc -c)
+    realpath "$path" | cut -b${baselen}-
+}
+
+# return the prefix of a hash
+function prefix {
+    echo -n "$1" | cut -b-2
+}
+
+# return the suffix of a hash
+function suffix {
+    echo -n "$1" | cut -b3-
+}
+
+# write metadata to the repo
+function wmeta {
+    hash=$1
+    data=$2
+    prefix=$(prefix "$hash")
+    suffix=$(suffix "$hash")
+
+    # skip write if meta already exists
+    if [ -f "$root/meta/$prefix/$suffix" ]; then
+        return 0
+    fi
+
+    # create prefix path if it doesn't exist
+    if [ ! -d "$root/meta/$prefix" ]; then
+        mkdir -p "$root/meta/$prefix" || err 2 "failed to create meta directory '$root/meta/$prefix'"
+    fi
+
+    echo "$data" > "$root/meta/$prefix/$suffix"
+}
+
+# write a file blob to the repo
+function wblob {
+    hash=$1
+    path=$2
+    data=$3
+    prefix=$(prefix "$hash")
+    suffix=$(suffix "$hash")
+
+    # skip write if blob already exists
+    if [ -f "$root/blobs/$prefix/$suffix" ]; then
+        return 0
+    fi
+
+    # create prefix path if it doesn't exist
+    if [ ! -d "$root/blobs/$prefix" ]; then
+        mkdir -p "$root/blobs/$prefix" || err 2 "failed to create blob directory '$root/blobs/$prefix'"
+    fi
+
+    if [ -f "$path" ]; then
+        cat "$path" > "$root/blobs/$prefix/$suffix"
+    else
+        echo "$data" > "$root/blobs/$prefix/$suffix"
+    fi
+}
+
+# return the stat info for a file
+function dostat {
+    stat -c '%a  %g  %u  %x  %y' $1
+}
+
+# write a directory to the repo
+function dodir {
+    dirpath=$(relpath "$1")
+
+    # recurse into the directory
+    abspath="$1"
+    metasums=""
+    for f in $(ls -1 "$abspath"); do
+        retsum=$($0 "$abspath/$f")
+        if [ $? = 0 ]; then
+            if [ -z "$metasums" ]; then
+                metasums="$f $retsum"
+            else
+                metasums=$(echo -e "$metasums\n$f $retsum")
+            fi
+        fi
+    done
+
+    blobsum=$(strsum "$metasums")
+    metadata="d  $(dostat "$abspath")  $blobsum"
+    metasum=$(strsum "$metadata")
+
+    wmeta "$metasum" "$metadata"
+    wblob "$blobsum" "$dirpath" "$metasums"
+    echo $metasum
+}
+
+# write a symlink to the repo
+function dolink {
+    linkpath=$(relpath "$1")
+
+    metadata="l $(readlink "$1")"
+    metasum=$(strsum "$metadata")
+
+    wmeta "$metasum" "$metadata"
+    echo $metasum
+}
+
+# write a file to the repo
+function dofile {
+    filepath=$(relpath "$1")
+
+    blobsum=$(filesum "$(dirname "$root")/$filepath")
+    metadata="f $(dostat "$1") $blobsum"
+    metasum=$(strsum "$metadata")
+
+    wmeta "$metasum" "$metadata"
+    wblob "$blobsum" "$filepath"
+    echo $metasum
+}
+
+# collect arguments
+path=$1
+
+# make sure we have everything we need
+if [ -z "$path" ]; then
+    echo "usage: $(basename $0) <path>"
+    exit 1
+fi
+
+# get the path relative to the repo parent directory
+relpath=$(relpath $(dirname "$root"))
+
+# make sure the path exists
+if [ ! -e "$path" ]; then
+    err 1 "path doesn't exist"
+fi
+
+# process path based on type
+if [ -d "$path" ]; then
+    dodir "$path"
+elif [ -h "$path" ]; then
+    dolink "$path"
+elif [ -f "$path" ]; then
+    dofile "$path"
+else
+    err 254 "ignoring unsupported file type"
+fi

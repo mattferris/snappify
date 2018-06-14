@@ -1,67 +1,53 @@
 #!/bin/bash
 #
 # snappify snapshot management suite
-# http://bueller.ca/software/snappify
+# github.com/mattferris/snappify
 #
-# Copyright (c) 2013 Matt Ferris
+# Copyright (c) 2018 Matt Ferris
 # Released under the BSD 2-clause license
-# http://bueller.ca/software/snappify/license
+# github.com/mattferris/snappify/blob/master/LICENSE.txt
 
-# usage: snappify-alias repo alias snap
+# the location of the snap repo
+root=".snappify"
 
-me=`basename "$0"`
-repo=$1
-snapalias=$2
-snap=$3
+# update the location of the snap repo if it was included in the environment
+if [ ! -z "$SNAPPIFY_ROOT" ]; then
+    root=$SNAPPIFY_ROOT
+fi
 
-_usage() {
-    echo "usage: $me repo [ alias [ snap ] ]"
+# report an error
+function err {
+    echo "error: $2" >&2
+    exit $1
 }
 
-if [ -z $repo ]; then
-    _usage
-    exit 1
-fi
+# report a notice
+function notice {
+    echo "notice: $1" >&2
+}
 
-if [ ! -d "$repo" ]; then
-    echo error: repository doesn\'t exist, \"$repo\"
-    exit 1
-fi
+# collect arguments
+alias=$1
+hash=$2
 
-if [ ! -d "$repo/aliases" ]; then
-    echo error: bad repository, \"$repo/aliases\" doesn\'t exist
-    exit 1
-fi
-
-if [ ! -d "$repo/snaps" ]; then
-    echo error: bad repository, \"$repo/snaps\" doesn\'t exist
-    exit 1
-fi
-
-if [ -z $snapalias ]; then
-    for i in `ls -1 "$repo/aliases"`; do
-        echo $i '->' `cat "$repo/aliases/$i"`
-    done
-else
-    if [ -z $snap ]; then
-        if [ -f "$repo/aliases/$snapalias" ]; then
-            cat "$repo/aliases/$snapalias"
-        else
-            aliaslen=${#snapalias}
-            for i in `ls -c1 "$repo/snaps"`; do
-                if [ "${i:0:$aliaslen}" = "$snapalias" ]; then
-                    echo $i
-                    break
-                fi
-            done
-        fi
-    elif [ "$snap" = "-" ]; then
-        if [ -f "$repo/aliases/$snapalias" ]; then
-            rm "$repo/aliases/$snapalias"
-            echo removed alias $snapalias
-        fi
-    else
-        echo $snap > "$repo/aliases/$snapalias"
-        echo $snapalias '->' $snap
+if [ -z "$alias" ]; then
+    if [ -d "$root/aliases" ]; then
+        for i in $(ls -1 "$root/aliases"); do
+            echo "$i -> $(cat "$root/aliases/$i")"
+        done
     fi
+elif [ -z "$hash" ]; then
+    if [ -f "$root/aliases/$alias" ]; then
+        cat "$root/aliases/$alias"
+    else
+        err 2 "alias undefined"
+    fi
+elif [ ! -z "$hash" ]; then
+    if [ ! -d "$root/aliases" ]; then
+        mkdir "$root/aliases" || err 2 "failed to create aliases directory"
+    fi
+    echo "$hash" > "$root/aliases/$alias"
+else
+    echo "usage: $(basename $0) [ <alias> [ <hash> ] ]" >&2
+    exit 1
 fi
