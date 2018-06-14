@@ -53,54 +53,37 @@ function suffix {
     echo -n "$1" | cut -b3-
 }
 
-# write metadata to the repo
-function wmeta {
+# write an object to the repo
+function wobj {
     hash=$1
     data=$2
+    path=$3
     prefix=$(prefix "$hash")
     suffix=$(suffix "$hash")
 
-    # skip write if meta already exists
-    if [ -f "$root/meta/$prefix/$suffix" ]; then
+    # skip write if object already exists
+    if [ -f "$root/objects/$prefix/$suffix" ]; then
         return 0
     fi
 
     # create prefix path if it doesn't exist
-    if [ ! -d "$root/meta/$prefix" ]; then
-        mkdir -p "$root/meta/$prefix" || err 2 "failed to create meta directory '$root/meta/$prefix'"
+    if [ ! -d "$root/objects/$prefix" ]; then
+        mkdir -p "$root/objects/$prefix" || err 2 "failed to create meta directory '$root/objects/$prefix'"
     fi
 
-    echo "$data" > "$root/meta/$prefix/$suffix"
-}
-
-# write a file blob to the repo
-function wblob {
-    hash=$1
-    path=$2
-    data=$3
-    prefix=$(prefix "$hash")
-    suffix=$(suffix "$hash")
-
-    # skip write if blob already exists
-    if [ -f "$root/blobs/$prefix/$suffix" ]; then
-        return 0
-    fi
-
-    # create prefix path if it doesn't exist
-    if [ ! -d "$root/blobs/$prefix" ]; then
-        mkdir -p "$root/blobs/$prefix" || err 2 "failed to create blob directory '$root/blobs/$prefix'"
-    fi
-
-    if [ -f "$path" ]; then
-        cat "$path" > "$root/blobs/$prefix/$suffix"
+    if [ ! -z "$path" ]; then
+        if [ ! -f "$path" ]; then
+            err 2 "failed to write object, path doesn't exist '$path'"
+        fi
+        cat "$path" > "$root/objects/$prefix/$suffix"
     else
-        echo "$data" > "$root/blobs/$prefix/$suffix"
+        echo "$data" > "$root/objects/$prefix/$suffix"
     fi
 }
 
 # return the stat info for a file
 function dostat {
-    stat -c '%a  %g  %u  %x  %y' $1
+    stat -c '%a %g %u' $1
 }
 
 # write a directory to the repo
@@ -122,11 +105,11 @@ function dodir {
     done
 
     blobsum=$(strsum "$metasums")
-    metadata="d  $(dostat "$abspath")  $blobsum"
+    metadata="d $(dostat "$abspath") $blobsum"
     metasum=$(strsum "$metadata")
 
-    wmeta "$metasum" "$metadata"
-    wblob "$blobsum" "$dirpath" "$metasums"
+    wobj "$metasum" "$metadata"
+    wobj "$blobsum" "$metasums"
     echo $metasum
 }
 
@@ -134,10 +117,13 @@ function dodir {
 function dolink {
     linkpath=$(relpath "$1")
 
-    metadata="l $(readlink "$1")"
+    target=$(readlink "$linkpath")
+    blobsum=$(strsum "$target")
+    metadata="l $(dostat "$linkpath") $blobsum"
     metasum=$(strsum "$metadata")
 
-    wmeta "$metasum" "$metadata"
+    wobj "$metasum" "$metadata"
+    wobj "$blobsum" "$target"
     echo $metasum
 }
 
@@ -149,35 +135,43 @@ function dofile {
     metadata="f $(dostat "$1") $blobsum"
     metasum=$(strsum "$metadata")
 
-    wmeta "$metasum" "$metadata"
-    wblob "$blobsum" "$filepath"
+    wobj "$metasum" "$metadata"
+    wobj "$blobsum" "" "$filepath"
     echo $metasum
+}
+
+# write a string to the repo
+function dostr {
+    data=$1
+    datasum=$(strsum "$data")
+    wobj "$datasum" "$data"
+    echo $datasum
 }
 
 # collect arguments
 path=$1
 
-# make sure we have everything we need
-if [ -z "$path" ]; then
-    echo "usage: $(basename $0) <path>"
-    exit 1
-fi
-
-# get the path relative to the repo parent directory
-relpath=$(relpath $(dirname "$root"))
-
-# make sure the path exists
-if [ ! -e "$path" ]; then
-    err 1 "path doesn't exist"
-fi
-
-# process path based on type
-if [ -d "$path" ]; then
-    dodir "$path"
-elif [ -h "$path" ]; then
-    dolink "$path"
-elif [ -f "$path" ]; then
-    dofile "$path"
+# process stdin if no path was supplied
+if [ -z "$path" ]; then 
+    while read l; do
+        [ ! -z "$data" ] && data="$data\n"
+        data=$(echo -e "$data$l")
+    done
+    dostr "$data"
 else
-    err 254 "ignoring unsupported file type"
+    # make sure the path exists
+    if [ ! -e "$path" ]; then
+        err 1 "path doesn't exist"
+    fi
+
+    # process path based on type
+    if [ -d "$path" ]; then
+        dodir "$path"
+    elif [ -h "$path" ]; then
+        dolink "$path"
+    elif [ -f "$path" ]; then
+        dofile "$path"
+    else
+        err 254 "ignoring unsupported file type"
+    fi
 fi

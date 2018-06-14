@@ -31,7 +31,24 @@ function notice {
 
 # get meta field
 function metafld {
-    echo $2 | awk -F'  ' "{print \$${1}}"
+    echo "$2" | cut -d\  -f${1}
+}
+
+# get relative path
+function relpath {
+    echo $1 | cut -b${baselen}-
+}
+
+# set mode and ownership
+function setmog {
+    name=$1
+    meta=$2
+    mode=$(metafld 2 "$meta")
+    group=$(metafld 3 "$meta")
+    owner=$(metafld 4 "$meta")
+    chmod "$mode" "$name"
+    chown "$owner" "$name"
+    chgrp "$group" "$name"
 }
 
 # restore a directory
@@ -46,17 +63,18 @@ function dodir {
     fi
 
     # set mode and ownership
-    #setmode $
+    setmog "$name" "$meta"
 
     # step into directory
     cd "$name"
 
     blobhash=$(metafld 5 "$meta")
-    for i in $(snappify-read blob "$blobhash"); do
+    snappify-read "$blobhash" | { \
+    while read i; do
         iname=$(echo "$i" | cut -d\  -f1)
-        ihash$(echo "$i" | cut -d\  -f2)
-        imeta=$(snappify-read meta "$ihash")
-        itype=$(metafld 1 "$meta")
+        ihash=$(echo "$i" | cut -d\  -f2)
+        imeta=$(snappify-read "$ihash")
+        itype=$(metafld 1 "$imeta")
 
         case $itype in
             d) dodir "$ihash" "$iname" "$imeta" ;;
@@ -65,18 +83,43 @@ function dodir {
             *) err 2 "unknown metadata type '$itype'" ;;
         esac
     done
+    }
 
-    
+    # change back to parent directory
+    if [ ! -z "$(relpath "$PWD")" ]; then
+        cd ..
+    fi
 }
 
 # restore a symlink
 function dolink {
+    hash=$1
+    name=$2
+    meta=$3
 
+    blobhash=$(metafld 5 "$meta")
+    target=$(snappify-read "$blobhash")
+
+    # create link if it doesn't exist
+    if [ ! -h "$name" ]; then
+        ln -s "$target" "$name"
+    fi
+
+    # set mode and ownership
+    setmog "$name" "$meta"
 }
 
 # restore a file
 function dofile {
+    hash=$1
+    name=$2
+    meta=$3
 
+    blobhash=$(metafld 5 "$meta")
+    snappify-read "$blobhash" > "$name"
+
+    # set mode and ownership
+    setmog "$name" "$meta"
 }
 
 # determine relative path length
@@ -93,4 +136,8 @@ if [ -z "$hash" ]; then
     exit 1
 fi
 
+snapmeta=$(snappify-read "$hash" | head -n1)
+roothash=$(metafld 3 "$snapmeta")
+rootmeta=$(snappify-read "$roothash")
 
+dodir "$roothash" "." "$rootmeta"

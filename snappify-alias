@@ -39,6 +39,17 @@ if [ -z "$alias" ]; then
 elif [ -z "$hash" ]; then
     if [ -f "$root/aliases/$alias" ]; then
         cat "$root/aliases/$alias"
+    elif [ $(echo -n "$alias" | wc -c) -ge 3 ]; then
+        prefix=$(echo $alias | cut -b-2)
+        suffix=$(echo $alias | cut -b3-)
+        if [ -d "$root/objects/$prefix" ]; then
+            num=$(ls -1 "$root/objects/$prefix/$suffix"* | wc -l)
+            if [ $num = 1 ]; then
+                path=$(ls -1 "$root/objects/$prefix/$suffix"*)
+                fname=$(basename "$path")
+                echo "$prefix$fname"
+            fi
+        fi
     else
         err 2 "alias undefined"
     fi

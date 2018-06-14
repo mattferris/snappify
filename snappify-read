@@ -51,44 +51,19 @@ function suffix {
     echo -n "$1" | cut -b3-
 }
 
-# read metadata from the repo
-function rmeta {
+# read an object from the repo
+function robj {
     hash=$1
     prefix=$(prefix "$hash")
     suffix=$(suffix "$hash")
+    path="$root/objects/$prefix/$suffix"
 
-    # check that metadata exists in repo
-    if [ ! -f "$root/meta/$prefix/$suffix" ]; then
-        err 2 "metadata doesn't exist"
+    # check that object exists in repo
+    if [ ! -f "$path" ]; then
+        err 2 "object doesn't exist: $path"
     fi
 
-    cat "$root/meta/$prefix/$suffix"
-}
-
-# read a file blob from the repo
-function rblob {
-    hash=$1
-    prefix=$(prefix "$hash")
-    suffix=$(suffix "$hash")
-
-    # check that blob exists in repo
-    if [ ! -f "$root/blobs/$prefix/$suffix" ]; then
-        err 2 "blob doesn't exist"
-    fi
-
-    cat "$root/blobs/$prefix/$suffix"
-}
-
-# read snap metadata from the repo
-function rsnap {
-    hash=$1
-
-    # check that snap exists in repo
-    if [ ! -f "$root/snaps/$hash" ]; then
-        err 2 "snapshot doesn't exist"
-    fi
-
-    cat "$root/snaps/$hash"
+    cat "$path"
 }
 
 # determine relative path length
@@ -96,31 +71,12 @@ realbase=$(dirname $(realpath "$root"))
 baselen=$(echo -n "$realbase/ " | wc -c)
 
 # collect arguments
-action=$1
-hash=$2
+hash=$1
 
 # make sure we have everything we need
 if [ -z "$hash" ]; then
-    echo "usage: $(basename $0) { blob | meta | snap } <hash>"
+    echo "usage: $(basename $0) <hash>"
     exit 1
 fi
 
-case $action in
-
-    blob)
-        rblob "$hash"
-        ;;
-
-    meta)
-        rmeta "$hash"
-        ;;
-
-    snap)
-        rsnap "$hash"
-        ;;
-
-    *)
-        err 1 "unknown object type: $action"
-        ;;
-
-esac
+robj "$hash"
