@@ -7,6 +7,9 @@
 # Released under the BSD 2-clause license
 # github.com/mattferris/snappify/blob/master/LICENSE.txt
 
+# exit on error
+set -e
+
 # the location of the snap repo
 root=".snappify"
 
@@ -24,6 +27,56 @@ function err {
 # report a notice
 function notice {
     echo "notice: $1" >&2
+}
+
+# get meta field
+function metafld {
+    echo $2 | awk -F'  ' "{print \$${1}}"
+}
+
+# restore a directory
+function dodir {
+    hash=$1
+    name=$2
+    meta=$3
+
+    # create directory if it doesn't exist
+    if [ ! -d "$name" ]; then
+        mkdir "$name"
+    fi
+
+    # set mode and ownership
+    #setmode $
+
+    # step into directory
+    cd "$name"
+
+    blobhash=$(metafld 5 "$meta")
+    for i in $(snappify-read blob "$blobhash"); do
+        iname=$(echo "$i" | cut -d\  -f1)
+        ihash$(echo "$i" | cut -d\  -f2)
+        imeta=$(snappify-read meta "$ihash")
+        itype=$(metafld 1 "$meta")
+
+        case $itype in
+            d) dodir "$ihash" "$iname" "$imeta" ;;
+            f) dofile "$ihash" "$iname" "$imeta" ;;
+            l) dolink "$ihash" "$iname" "$imeta" ;;
+            *) err 2 "unknown metadata type '$itype'" ;;
+        esac
+    done
+
+    
+}
+
+# restore a symlink
+function dolink {
+
+}
+
+# restore a file
+function dofile {
+
 }
 
 # determine relative path length
