@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/perl
 #
 # snappify snapshot management suite
 # github.com/mattferris/snappify
@@ -7,171 +7,241 @@
 # Released under the BSD 2-clause license
 # github.com/mattferris/snappify/blob/master/LICENSE.txt
 
+use Cwd qw(abs_path);
+use Digest::SHA qw(sha1_hex);
+use File::Path qw(make_path);
+
 # the location of the snap repo
-root=".snappify"
+my $root = ".snappify";
 
 # update the location of the snap repo if it was included in the environment
-if [ ! -z "$SNAPPIFY_ROOT" ]; then
-    root=$SNAPPIFY_ROOT
-fi
-
-# report an error
-function err {
-    echo "error: $2" >&2
-    exit $1
-}
-
-# report a notice
-function notice {
-    echo "notice: $1" >&2
-}
-
-# generate a checksum for a string
-function strsum {
-    echo -n "$1" | sha1sum | cut -d\  -f1
-}
-
-# generate a checksum for a file
-function filesum {
-    sha1sum $1 | cut -d\  -f1
-}
-
-# determine path relative to repo
-function relpath {
-    realbase=$(dirname $(realpath "$root"))
-    baselen=$(echo -n "$realbase/ " | wc -c)
-    realpath "$path" | cut -b${baselen}-
-}
-
-# return the prefix of a hash
-function prefix {
-    echo -n "$1" | cut -b-2
-}
-
-# return the suffix of a hash
-function suffix {
-    echo -n "$1" | cut -b3-
-}
-
-# write an object to the repo
-function wobj {
-    hash=$1
-    data=$2
-    path=$3
-    prefix=$(prefix "$hash")
-    suffix=$(suffix "$hash")
-
-    # skip write if object already exists
-    if [ -f "$root/objects/$prefix/$suffix" ]; then
-        return 0
-    fi
-
-    # create prefix path if it doesn't exist
-    if [ ! -d "$root/objects/$prefix" ]; then
-        mkdir -p "$root/objects/$prefix" || err 2 "failed to create meta directory '$root/objects/$prefix'"
-    fi
-
-    if [ ! -z "$path" ]; then
-        if [ ! -f "$path" ]; then
-            err 2 "failed to write object, path doesn't exist '$path'"
-        fi
-        cat "$path" > "$root/objects/$prefix/$suffix"
-    else
-        echo "$data" > "$root/objects/$prefix/$suffix"
-    fi
-}
-
-# return the stat info for a file
-function dostat {
-    stat -c '%a %g %u' $1
-}
-
-# write a directory to the repo
-function dodir {
-    dirpath=$(relpath "$1")
-
-    # recurse into the directory
-    abspath="$1"
-    metasums=""
-    for f in $(ls -1 "$abspath"); do
-        retsum=$($0 "$abspath/$f")
-        if [ $? = 0 ]; then
-            if [ -z "$metasums" ]; then
-                metasums="$f $retsum"
-            else
-                metasums=$(echo -e "$metasums\n$f $retsum")
-            fi
-        fi
-    done
-
-    blobsum=$(strsum "$metasums")
-    metadata="d $(dostat "$abspath") $blobsum"
-    metasum=$(strsum "$metadata")
-
-    wobj "$metasum" "$metadata"
-    wobj "$blobsum" "$metasums"
-    echo $metasum
-}
-
-# write a symlink to the repo
-function dolink {
-    linkpath=$(relpath "$1")
-
-    target=$(readlink "$linkpath")
-    blobsum=$(strsum "$target")
-    metadata="l $(dostat "$linkpath") $blobsum"
-    metasum=$(strsum "$metadata")
-
-    wobj "$metasum" "$metadata"
-    wobj "$blobsum" "$target"
-    echo $metasum
-}
-
-# write a file to the repo
-function dofile {
-    filepath=$(relpath "$1")
-
-    blobsum=$(filesum "$(dirname "$root")/$filepath")
-    metadata="f $(dostat "$1") $blobsum"
-    metasum=$(strsum "$metadata")
-
-    wobj "$metasum" "$metadata"
-    wobj "$blobsum" "" "$filepath"
-    echo $metasum
-}
-
-# write a string to the repo
-function dostr {
-    data=$1
-    datasum=$(strsum "$data")
-    wobj "$datasum" "$data"
-    echo $datasum
+if (defined($ENV{'SNAPPIFY_ROOT'})) {
+    $root = $ENV{'SNAPPIFY_ROOT'};
 }
 
 # collect arguments
-path=$1
+my $path = $ARGV[0];
 
 # process stdin if no path was supplied
-if [ -z "$path" ]; then 
-    while read l; do
-        [ ! -z "$data" ] && data="$data\n"
-        data=$(echo -e "$data$l")
-    done
-    dostr "$data"
-else
+if (!defined($path)) {
+    debug("reading data from stdin");
+    my $data;
+    while (<>) {
+        $data .= $_;
+    }
+    print dostr($data)."\n";
+    exit(0);
+} else {
     # make sure the path exists
-    if [ ! -e "$path" ]; then
-        err 1 "path doesn't exist"
-    fi
+    if (! -e "$path") {
+        err(1, "path doesn't exist");
+    }
 
+    my $sum;
+    debug("reading data from path $path");
     # process path based on type
-    if [ -d "$path" ]; then
-        dodir "$path"
-    elif [ -h "$path" ]; then
-        dolink "$path"
-    elif [ -f "$path" ]; then
-        dofile "$path"
-    else
-        err 254 "ignoring unsupported file type"
-    fi
-fi
+    if (-d "$path") {
+        $sum = dodir($path);
+    } elsif (-l "$path") {
+        $sum = dolink($path);
+    } elsif (-f "$path") {
+        $sum = dofile($path);
+    } else {
+        err(254, "ignoring unsupported file type")
+    }
+
+    print "$sum\n";
+    exit(0);
+}
+
+# write an object to the repo
+sub wobj {
+    my ($hash, $data, $rest) = @_;
+    my $pfx = prefix($hash);
+    my $sfx = suffix($hash);
+
+    my $pfxpath = "$root/objects/$pfx";
+    my $sfxpath = "$pfxpath/$sfx";
+
+    # skip write if object already exists
+    if (-f "$sfxpath") {
+        debug("object $hash already exists, skipping");
+        return 1;
+    }
+
+    # create prefix path if it doesn't exist
+    if (! -d "$pfxpath") {
+        make_path("$pfxpath");
+    }
+
+    # open handle to object file
+    open(my $obj, ">$sfxpath") || err("failed to open file for write $sfxpath");
+
+    # write data to object
+    if ($data->{'type'} eq 'fh') {
+        debug("writing to object $sfxpath from filehandle");
+        while (!eof($data->{'fh'})) {
+            read($data->{'fh'}, my $in, 4096) || err(3, "failed to read from filehandle");
+            print $obj $in;
+        }
+    } elsif ($data->{'type'} eq 'str') {
+        if (!defined($data->{'str'})) {
+            err(2, "missing string data");
+        }
+        debug("writing to object $sfxpath from string");
+        print $obj $data->{'str'};
+    } else {
+        err(2, "invalid data");
+    }
+
+    # close object handle
+    close($obj);
+}
+
+# write a directory to the repo
+sub dodir {
+    my $dirpath = shift;
+    debug("processing directory $dirpath");
+
+    # recurse into the directory
+    my @metasums;
+    opendir(my $dh, "$dirpath") || err(2, "failed to open directory $dirpath");
+    while (readdir($dh)) {
+        next if /^(\.|\.\.|\.snappify)$/;
+        my $path = "$dirpath/$_";
+        debug("found entry $_");
+
+        if (-f "$path") {
+            push(@metasums, dofile($path)." $_");
+        } elsif (-d "$path") {
+            push(@metasums, dodir($path)." $_");
+        } elsif (-l "$path") {
+            push(@metasums, dolink($path)." $_");
+        }
+    }
+    close($dh);
+
+    my $blobdata = join("\n", @metasums)."\n";
+    my $blobsum = strsum($blobdata);
+    my $metadata = "d ".dostat($dirpath)." $blobsum\n";
+    my $metasum = strsum($metadata);
+
+    debug("writing directory metadata for $dirpath");
+    #wobj($metasum, $metadata);
+    wobj($metasum, {type => "str", str => $metadata});
+    debug("writing directory contents for $dirpath");
+    #wobj($blobsum, $blobdata);
+    wobj($blobsum, {type => "str", str => $blobdata});
+    return $metasum;
+}
+
+# write a symlink to the repo
+sub dolink {
+    my $linkpath = shift;
+    debug("processing symlink $linkpath");
+
+    my $target = readlink($linkpath)."\n";
+    my $blobsum = strsum($target);
+    my $metadata = "l ".dostat($linkpath)." $blobsum\n";
+    my $metasum = strsum($metadata);
+
+    debug("writing symlink metadata for $linkpath");
+    #wobj($metasum, $metadata);
+    wobj($metasum, {type => "str", str => $metadata});
+    debug("writing symlink contents for $linkpath");
+    #wobj($blobsum, $target);
+    wobj($blobsum, {type => "str", str => $target});
+    return $metasum;
+}
+
+# write a file to the repo
+sub dofile {
+    my $filepath = shift;
+    debug("processing file $filepath");
+
+    open(my $fh, $filepath) || err(2, "failed to open file $filepath");
+    debug("opened file for reading $filepath");
+
+    my $blobsum = Digest::SHA->new(1)->addfile($fh)->hexdigest;
+    seek($fh, 0, 0);
+
+    my $metadata = "f ".dostat($filepath)." $blobsum\n";
+    my $metasum = strsum($metadata);
+
+    debug("writing file metadata for $filepath");
+    wobj($metasum, {type => "str", str => $metadata});
+    debug("writing file contents for $filepath");
+    wobj($blobsum, {type => "fh", fh => $fh});
+
+    close($fh);
+    return $metasum;
+}
+
+# write a string to the repo
+sub dostr {
+    my $data = shift;
+    debug("processing string");
+    my $datasum = strsum($data);
+    debug("writing string contents");
+    wobj($datasum, {type => "str", str => $data});
+    return $datasum;
+}
+
+# return the stat info for a file
+sub dostat {
+    my $path = shift;
+    my @stat = stat($path);
+    my $ret = {
+        'mode' => sprintf("%o", $stat[2] & 07777),
+        'uid' => $stat[4],
+        'gid' => $stat[5]
+    };
+    return $ret->{'mode'}." ".$ret->{'uid'}." ".$ret->{'gid'};
+}
+
+# determine path relative to repo
+sub relpath {
+    my $path = shift;
+    my $realbase = dirname(abs_path($root));
+    my $baselen = strlen($realbase);
+    return substr($path, $baselen+1);
+}
+
+# hash a string
+sub strsum {
+    my $str = shift;
+    return sha1_hex($str);
+}
+
+# return the prefix of a hash
+sub prefix {
+    my $hash = shift;
+    return substr($hash, 0, 2);
+}
+
+# return the suffix of a hash
+sub suffix {
+    my $hash = shift;
+    return substr($hash, 2)
+}
+
+# report a debug message
+sub debug {
+    my $msg = shift;
+    if (defined($ENV{'SNAPPIFY_DEBUG'})) {
+        print STDERR "debug: $msg\n";
+    }
+}
+
+# report a notice
+sub notice {
+    my $msg = shift;
+    print STDERR "notice: $msg\n";
+}
+
+# report an error
+sub err {
+    my ($code, $msg, $rest) = @_;
+    print STDERR "error: $msg\n";
+    exit($code);
+}
