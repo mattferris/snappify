@@ -71,8 +71,8 @@ function dodir {
     blobhash=$(metafld 5 "$meta")
     snappify-read "$blobhash" | { \
     while read i; do
-        iname=$(echo "$i" | cut -d\  -f1)
-        ihash=$(echo "$i" | cut -d\  -f2)
+        ihash=$(echo "$i" | cut -d\  -f1)
+        iname=$(echo "$i" | cut -d\  -f2-)
         imeta=$(snappify-read "$ihash")
         itype=$(metafld 1 "$imeta")
 
