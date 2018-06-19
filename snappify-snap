@@ -62,11 +62,6 @@ if [ ! $? = 0 ]; then
     err 2 "snapshot failed, an error was encountered while writing to $root"
 fi
 
-# make sure snaps directory exists
-if [ ! -d "$root/snaps" ]; then
-    mkdir "$root/snaps" || err 2 "failed to create snap directory"
-fi
-
 # check if this fileset is the same as the last snapshot
 last=$(snappify-alias last 2>/dev/null)
 if [ $? = 0 -a ! -z "$last" ]; then
