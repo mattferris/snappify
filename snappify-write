@@ -127,10 +127,8 @@ sub dodir {
     my $metasum = strsum($metadata);
 
     debug("writing directory metadata for $dirpath");
-    #wobj($metasum, $metadata);
     wobj($metasum, {type => "str", str => $metadata});
     debug("writing directory contents for $dirpath");
-    #wobj($blobsum, $blobdata);
     wobj($blobsum, {type => "str", str => $blobdata});
     return $metasum;
 }
@@ -146,10 +144,8 @@ sub dolink {
     my $metasum = strsum($metadata);
 
     debug("writing symlink metadata for $linkpath");
-    #wobj($metasum, $metadata);
     wobj($metasum, {type => "str", str => $metadata});
     debug("writing symlink contents for $linkpath");
-    #wobj($blobsum, $target);
     wobj($blobsum, {type => "str", str => $target});
     return $metasum;
 }
