@@ -108,16 +108,20 @@ sub dodir {
     opendir(my $dh, "$dirpath") || err(2, "failed to open directory $dirpath");
     while (readdir($dh)) {
         next if /^(\.|\.\.|\.snappify)$/;
-        my $path = "$dirpath/$_";
-        debug("found entry $_");
+        my $entry = $_;
+        my $path = "$dirpath/$entry";
+        debug("found entry $entry");
 
+        my $entrysum;
         if (-f "$path") {
-            push(@metasums, dofile($path)." $_");
+            $entrysum = dofile($path)." $entry"; 
         } elsif (-d "$path") {
-            push(@metasums, dodir($path)." $_");
+            $entrysum = dodir($path)." $entry"; 
         } elsif (-l "$path") {
-            push(@metasums, dolink($path)." $_");
+            $entrysum = dolink($path)." $entry"; 
         }
+
+        push(@metasums, $entrysum);
     }
     close($dh);
 
