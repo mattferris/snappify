@@ -18,6 +18,8 @@ if [ ! -z "$SNAPPIFY_ROOT" ]; then
     root=$SNAPPIFY_ROOT
 fi
 
+export SNAPPIFY_ROOT=$(realpath "$root")
+
 # report an error
 function err {
     echo "error: $2" >&2
@@ -123,7 +125,7 @@ function dofile {
 }
 
 # determine relative path length
-realbase=$(dirname $(realpath "$root"))
+realbase=$(dirname "$root")
 baselen=$(echo -n "$realbase/ " | wc -c)
 
 # collect arguments
