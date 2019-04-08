@@ -21,6 +21,7 @@ _usage() {
     echo "       $me diff [ snapshot | 'last' [ file ] ]"
     echo "       $me init"
     echo "       $me list"
+    echo "       $me log"
     echo "       $me restore [ snapshot [ file ] ]"
     echo "       $me snap [ name ]"
     echo "       $me status [ snapshot ]"
@@ -53,10 +54,12 @@ if [ "$repo" = "" ]; then
     exit 1
 fi
 
+export SNAPPIFY_ROOT=$repo
+
 case "$action" in
 
     alias)
-        snappify-alias "$repo" "$2" "$3"
+        snappify-alias "$2" "$3"
         ;;
 
     clean)
@@ -81,8 +84,12 @@ case "$action" in
         ;;
 
     list)
-        snappify-list "$repo"
+        snappify-log -s
         ;;
+
+    log)
+        snappify-log $@
+        ;; 
 
     restore)
         snap="last"
@@ -90,8 +97,8 @@ case "$action" in
             snap=$2
             
         fi
-        snap=`snappify-alias "$repo" "$snap"`
-        snappify-restore "$repo" "$snap" "$3"
+        snap=`snappify-alias "$snap"`
+        snappify-restore $snap
         ;;
 
     snap)

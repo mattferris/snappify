@@ -26,6 +26,13 @@ function notice {
     echo "notice: $1" >&2
 }
 
+short=0
+
+if [ ! -z "$1" -a -z "${1%%-*}" ]; then
+    short=1
+    shift
+fi
+
 # how many snapshots to display?
 num=$1
 
@@ -40,17 +47,20 @@ if [ ! -f "$root/log" ]; then
 fi
 
 # display log
-echo
 for hash in $(tail -n "$num" "$root/log"); do
     meta=$(snappify-read "$hash" | head -n1)
     message=$(snappify-read "$hash" | tail -n+2 | head -n1)
     user=$(echo $meta | cut -d\  -f1)
     date=$(echo $meta | cut -d\  -f2) 
-    echo "snapshot $hash"
-    echo "Created by $user on $(date -d "@$date")"
-    echo
-    if [ ! -z "$message" ]; then
-        echo "    $message"
+    if [ $short = 0 ]; then
+        echo "snapshot $hash"
+        echo "Created by $user on $(date -d "@$date")"
         echo
+        if [ ! -z "$message" ]; then
+            echo "    $message"
+            echo
+        fi
+    else
+        echo "$(echo $hash | cut -b1-8) $message"
     fi
 done
